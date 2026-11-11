@@ -1,12 +1,16 @@
-# Using ujust (just) on Debian
+# Porting ujust-style Recipes to Debian
 
-This guide explains how to set up the `just` command runner on Debian and replicate the directory structure used by `ujust` (Universal Blue/Fedora) so that recipes and their associated scripts work as intended.
+This guide explains how to set up a `ujust` environment on Debian. This is useful for any project that uses the `ujust` pattern—a combination of the `just` command runner, a global `justfile`, and associated scripts stored in system directories.
 
 ## Overview
 
-On Fedora-based systems, `ujust` is a wrapper that points to a global `justfile`. This `justfile` often calls external shell scripts located in system directories like `/usr/libexec`. To make this work on Debian, you need to install the `just` tool and manually replicate these paths.
+The `ujust` pattern typically relies on two main directories:
+1. `/usr/share/ujust/`: Stores the `justfile` (the list of recipes).
+2. `/usr/libexec/ujust/`: Stores the actual shell scripts that the recipes execute.
 
-## Installation
+Since Debian does not have these by default, you must create the structure and populate it with the files from your chosen project.
+
+## 1. Installation
 
 First, install the `just` command runner:
 
@@ -15,70 +19,67 @@ sudo apt update
 sudo apt install just
 ```
 
-## System Setup (Replicating Fedora Paths)
+## 2. System Structure Setup
 
-To ensure the recipes can find their associated scripts, copy the `justfile` and the scripts folder into the standard system locations.
-
-### 1. Create the directory structure
-Create the folders where the recipes and the internal scripts will reside:
+You need to create the standard directories so that the `justfile` can find the scripts it references.
 
 ```bash
+# Create the directory for the justfile
 sudo mkdir -p /usr/share/ujust
+
+# Create the directory for the executable scripts
 sudo mkdir -p /usr/libexec/ujust
 ```
 
-### 2. Copy the files
-Clone the repository containing the recipes (e.g., `ublue-os`) and move the files into the directories created above.
+## 3. Populating the Files
 
+You must now copy the `justfile` and the scripts from the project you wish to use. Replace `<project-repo>` with the actual path or URL of the repository.
+
+### Step A: Copy the justfile
+The `justfile` must be placed exactly here for the wrapper to work:
 ```bash
-# Clone the source
-git clone https://github.com/ublue-os/ublue-os.git /tmp/ublue-os
+# Example if you have the repo cloned locally:
+sudo cp /path/to/<project-repo>/justfile /usr/share/ujust/justfile
+```
 
-# Copy the main justfile
-sudo cp /tmp/ublue-os/justfile /usr/share/ujust/justfile
+### Step B: Copy the scripts
+Most `ujust` setups reference scripts located in a `scripts` or `libexec` folder within the repo. These must be moved to `/usr/libexec/ujust/`:
+```bash
+# Copy all scripts to the libexec folder
+sudo cp -r /path/to/<project-repo>/scripts/* /usr/libexec/ujust/
 
-# Copy the scripts that the justfile references
-# Note: Adjust the source path based on the specific repo structure
-sudo cp -r /tmp/ublue-os/scripts/* /usr/libexec/ujust/
-
-# Make sure all scripts are executable
+# Ensure all copied scripts are executable
 sudo chmod +x /usr/libexec/ujust/*
 ```
 
-## Creating the `ujust` Command
+## 4. Creating the `ujust` Command
 
-To avoid typing the full path to the justfile every time, create a system-wide alias or a small wrapper script.
+To make the recipes accessible via a simple `ujust` command, create a system-wide wrapper script.
 
-### Option A: Bash Alias (User-level)
-Add this to your `~/.bashrc` or `~/.zshrc`:
-```bash
-alias ujust='just --justfile /usr/share/ujust/justfile'
-```
-Then run `source ~/.bashrc`.
-
-### Option B: Wrapper Script (System-level)
-Create a script in `/usr/local/bin` so all users can use the `ujust` command:
 ```bash
 echo '#!/bin/bash' | sudo tee /usr/local/bin/ujust
 echo 'just --justfile /usr/share/ujust/justfile "$@"' | sudo tee -a /usr/local/bin/ujust
 sudo chmod +x /usr/local/bin/ujust
 ```
 
-## Usage
+## 5. Usage
 
-Now you can use the recipes just like on Fedora:
+You can now list and run recipes from any project you have installed in the directories above:
 
 ```bash
+# List all available recipes
 ujust --list
+
+# Run a specific recipe
 ujust recipe-name
 ```
 
-## Important Compatibility Warning
+## ⚠️ Important Compatibility Warning
 
-Even with the correct folder structure, **the scripts inside `/usr/libexec/ujust` were written for Fedora.**
+Most projects using the `ujust` pattern are designed for Fedora/RPM-based systems. **They will not work on Debian without modification.**
 
-* **Package Manager:** Most scripts will call `dnf` or expect `.rpm` packages. You must manually edit the scripts in `/usr/libexec/ujust/` to use `apt` and `.deb` packages.
-* **System Paths:** Scripts may look for Fedora-specific config files (e.g., in `/etc/fedora-release`) which do not exist on Debian.
-* **Dependencies:** Some recipes rely on Fedora-specific kernel modules or systemd configurations.
+* **Package Managers:** Look for `dnf` or `rpm` commands in the scripts located in `/usr/libexec/ujust/` and change them to `apt` or `dpkg`.
+* **Paths:** Fedora-specific paths (e.g., `/etc/fedora-release`) must be updated to Debian equivalents.
+* **Dependencies:** Ensure any tools the scripts rely on are installed via `apt`.
 
-**Recommendation:** Always inspect the script in `/usr/libexec/ujust/` before running a recipe to ensure it won't attempt to run incompatible Fedora commands on your Debian system.
+**Recommendation:** Always open the script in `/usr/libexec/ujust/` and verify the commands before running them to avoid system errors.
