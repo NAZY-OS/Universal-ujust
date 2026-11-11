@@ -1,50 +1,40 @@
-# Using `ujust` Recipes on Debian
+# Using ujust (just) on Debian
 
-`ujust` is commonly associated with Fedora-based systems such as Universal Blue and Bazzite. Debian can run the `just` command runner, but that does **not** make every `ujust` recipe compatible.
+This guide explains how to use the `just` command runner on Debian to execute recipes typically associated with `ujust` (Universal Blue/Fedora).
 
-Many recipes assume Fedora-specific tools—often `rpm`, `dnf`, or `rpm-ostree`—or expect files and system configurations that exist only on Universal Blue images. Debian does not provide the same environment. Installing the `rpm` utility alone will not make `rpm-ostree` commands or Fedora-specific recipes work.
+## Overview
 
-## Install `just`
+`ujust` is essentially a wrapper for `just` that points to a specific set of recipes used in Fedora-based distributions like Bazzite or Universal Blue. While the `just` tool itself is platform-agnostic, the recipes (the scripts inside the justfile) are often written specifically for Fedora.
+
+## Installation
+
+To run these recipes, you first need to install the `just` command runner:
 
 ```bash
 sudo apt update
 sudo apt install just
 ```
 
-## Run a recipe file
+## Usage
 
-Obtain the relevant `.just` file from the project that provides the recipe. Then list its recipes and run one:
+Since you are not on a Fedora-based system where `ujust` is pre-configured, you must manually specify the path to the project's `justfile`.
 
+To list available recipes:
 ```bash
 just --justfile /path/to/justfile --list
-just --justfile /path/to/justfile RECIPE_NAME
 ```
 
-Replace `/path/to/justfile` and `RECIPE_NAME` with the actual file path and recipe name.
-
-## Check compatibility first
-
-Before running a recipe, inspect its commands for Fedora-specific dependencies:
-
+To run a specific recipe:
 ```bash
-grep -nE 'rpm|rpm-ostree|dnf|ostree' /path/to/justfile
+just --justfile /path/to/justfile recipe-name
 ```
 
-You can also check whether common tools are available:
+## Important Compatibility Warning
 
-```bash
-command -v rpm
-command -v rpm-ostree
-command -v dnf
-```
+Most `ujust` recipes are designed for the Fedora ecosystem. When running them on Debian, you will likely encounter the following issues:
 
-A missing command usually means the recipe will fail. Even if `rpm` is installed, that does not provide `rpm-ostree` or reproduce Fedora's package-management and system-image setup.
+* **Package Management:** Many recipes call `dnf` or attempt to install `.rpm` packages. These will fail on Debian, which uses `apt` and `.deb` packages.
+* **System Paths:** Recipes may reference file paths (e.g., `/etc/fedora-release`) or system configurations that do not exist on Debian.
+* **Dependencies:** Some recipes rely on Fedora-specific tools or kernel configurations.
 
-## Recommended approach
-
-- Use `just` to run only recipes that are compatible with Debian.
-- Read each recipe before running it, especially if it uses `sudo`.
-- Replace Fedora-specific package or system-management commands with Debian equivalents where appropriate.
-- Do not run recipes that modify an immutable system image or rely on `rpm-ostree` unless you are actually using a compatible system.
-
-In short: Debian can use the `just` runner, but `ujust` recipes often need to be adapted before they will work.
+**Recommendation:** Always inspect the content of the recipe in the `justfile` before executing it. You will likely need to manually edit the recipe to replace Fedora-specific commands with their Debian equivalents.
